@@ -9,12 +9,17 @@ import java.net.Socket
 private val logger: Logger = LoggerFactory.getLogger("ES with safe statistics")
 private const val PORT = 9090
 
+private val serverInfo = SafeButNonScalableServerInfo()
+
 fun main() {
     logger.info("Starting echo server on port $PORT")
     runEchoServer()
     logger.info("Echo server stopped")
 }
 
+/**
+ * The echo server loop.
+ */
 private fun runEchoServer() {
     ServerSocket().use { serverSocket ->
         serverSocket.bind(InetSocketAddress("0.0.0.0", PORT))
@@ -28,26 +33,33 @@ private fun runEchoServer() {
     }
 }
 
+private const val EXIT = "exit"
+private const val STATS = "stats"
+
+/**
+ * Handles the client connection.
+ * @param [clientSocket] the client socket
+ */
 private fun handleClient(clientSocket: Socket) {
     logger.info("Client connected: ${clientSocket.remoteSocketAddress}")
-    clientSocket.use {
-        // TODO: Start session
-        it.getInputStream().bufferedReader().use { reader ->
-            it.getOutputStream().bufferedWriter().use { writer ->
-                writer.writeLine("Hello! Please type something and press Enter:")
+    serverInfo.withSession(clientSocket) { session ->
+        clientSocket.getInputStream().bufferedReader().use { reader ->
+            clientSocket.getOutputStream().bufferedWriter().use { writer ->
+                writer.writeLine("Hello ${clientSocket.remoteSocketAddress}! Please type something and press Enter:")
                 while (true) {
                     val line = reader.readLine()
-                    // TODO: Increment session's message count
-                    if (line.trim().lowercase() == "exit") {
+                    serverInfo.incrementMessageCount(session)
+                    if (line.trim().lowercase() == EXIT) {
                         writer.writeLine("Bye!")
                         break
                     }
-                    // TODO: Handle stats command, that returns:
-                    //  Total clients handled, active session count and message count per active client
+                    if (line.trim().lowercase() == STATS) {
+                        writer.writeLine("Session stats: ${serverInfo.getStats()}")
+                        break
+                    }
                     writer.writeLine("You wrote: $line")
                 }
             }
         }
-        // TODO: End session
     }
 }
