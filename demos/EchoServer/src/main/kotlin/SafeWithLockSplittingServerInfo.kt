@@ -10,10 +10,17 @@ import kotlin.concurrent.withLock
  * @property [remoteSocketAddress] the remote socket address
  * @property [messageCount] the number of messages received
  */
-data class SafeButNotScalableSessionInfo(
-    val remoteSocketAddress: SocketAddress,
-    val messageCount: Int = 0
-)
+class SafeWithLockSplittingSessionInfo(val remoteSocketAddress: SocketAddress) {
+    private var _messageCount = 0
+    private val sessionLock = ReentrantLock()
+
+    val messageCount: Int
+        get() = sessionLock.withLock { _messageCount }
+
+    fun incrementMessageCount() {
+        sessionLock.withLock { _messageCount += 1 }
+    }
+}
 
 /**
  * Represents the server statistics.
@@ -21,9 +28,9 @@ data class SafeButNotScalableSessionInfo(
  * @property [sessions] the list of sessions
  * @property [activeSessions] the number of active sessions
  */
-data class SafeButNotScalableStats(
+data class SafeWithLockSplittingStats(
     val totalClients: Int = 0,
-    val sessions: List<SafeButNotScalableSessionInfo> = emptyList(),
+    val sessions: List<SafeWithLockSplittingSessionInfo> = emptyList(),
     val activeSessions: Int = sessions.size
 )
 
@@ -31,9 +38,9 @@ data class SafeButNotScalableStats(
  * Represents the server information. This implementation is safe but not scalable because
  * it uses a single lock to protect all shared state.
  */
-class SafeButNonScalableServerInfo {
+class SafeWithLockSplittingServerInfo {
 
-    private val sessions = mutableMapOf<SocketAddress, SafeButNotScalableSessionInfo>()
+    private val sessions = mutableMapOf<SocketAddress, SafeWithLockSplittingSessionInfo>()
     private var totalClients = 0
     private val theLock = ReentrantLock()
 
@@ -42,9 +49,9 @@ class SafeButNonScalableServerInfo {
      * @param [remoteSocketAddress] the clients' remote address information
      * @return the newly created [SessionInfo] instance
      */
-    private fun createSession(remoteSocketAddress: SocketAddress): SafeButNotScalableSessionInfo {
+    private fun createSession(remoteSocketAddress: SocketAddress): SafeWithLockSplittingSessionInfo {
         theLock.withLock {
-            val session = SafeButNotScalableSessionInfo(remoteSocketAddress)
+            val session = SafeWithLockSplittingSessionInfo(remoteSocketAddress)
             sessions[remoteSocketAddress] = session
             totalClients += 1
             return session
@@ -55,7 +62,7 @@ class SafeButNonScalableServerInfo {
      * Ends the given session.
      * @param [sessionInfo] the session to be terminated
      */
-    fun endSession(sessionInfo: SafeButNotScalableSessionInfo) {
+    fun endSession(sessionInfo: SafeWithLockSplittingSessionInfo) {
         theLock.withLock {
             sessions.remove(sessionInfo.remoteSocketAddress)
         }
@@ -65,11 +72,11 @@ class SafeButNonScalableServerInfo {
      * Increments the number of received messages for the given session.
      * @param [sessionInfo] the session to increment the message count for
      */
-    fun incrementMessageCount(sessionInfo: SafeButNotScalableSessionInfo) {
-        theLock.withLock {
-            val session = checkNotNull(sessions[sessionInfo.remoteSocketAddress])
-            sessions[sessionInfo.remoteSocketAddress] = session.copy(messageCount = sessionInfo.messageCount + 1)
+    fun incrementMessageCount(sessionInfo: SafeWithLockSplittingSessionInfo) {
+        val session = theLock.withLock {
+            checkNotNull(sessions[sessionInfo.remoteSocketAddress])
         }
+        session.incrementMessageCount()
     }
 
     /**
@@ -78,7 +85,7 @@ class SafeButNonScalableServerInfo {
      */
     fun getStats() =
         theLock.withLock {
-            SafeButNotScalableStats(totalClients = totalClients, sessions = sessions.values.toList()).toString()
+            SafeWithLockSplittingStats(totalClients = totalClients, sessions = sessions.values.toList()).toString()
         }
 
     /**
@@ -86,9 +93,9 @@ class SafeButNonScalableServerInfo {
      * @param [clientSocket] the client socket
      * @param [block] the block of code to execute
      */
-    fun withSession(clientSocket: Socket, block: (SafeButNotScalableSessionInfo) -> Unit) {
+    fun withSession(clientSocket: Socket, block: (SafeWithLockSplittingSessionInfo) -> Unit) {
         clientSocket.use { socket ->
-            lateinit var session: SafeButNotScalableSessionInfo
+            lateinit var session: SafeWithLockSplittingSessionInfo
             try {
                 session = createSession(socket.remoteSocketAddress)
                 block(session)

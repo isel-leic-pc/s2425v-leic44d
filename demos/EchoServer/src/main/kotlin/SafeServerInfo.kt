@@ -2,18 +2,24 @@ package org.example
 
 import java.net.Socket
 import java.net.SocketAddress
-import java.util.concurrent.locks.ReentrantLock
-import kotlin.concurrent.withLock
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Represents the session information.
  * @property [remoteSocketAddress] the remote socket address
  * @property [messageCount] the number of messages received
  */
-data class SafeButNotScalableSessionInfo(
-    val remoteSocketAddress: SocketAddress,
-    val messageCount: Int = 0
-)
+class SafeSessionInfo(val remoteSocketAddress: SocketAddress) {
+    private val _messageCount = AtomicInteger(0)
+
+    val messageCount: Int
+        get() = _messageCount.get()
+
+    fun incrementMessageCount() {
+        _messageCount.incrementAndGet()
+    }
+}
 
 /**
  * Represents the server statistics.
@@ -21,9 +27,9 @@ data class SafeButNotScalableSessionInfo(
  * @property [sessions] the list of sessions
  * @property [activeSessions] the number of active sessions
  */
-data class SafeButNotScalableStats(
+data class SafeStats(
     val totalClients: Int = 0,
-    val sessions: List<SafeButNotScalableSessionInfo> = emptyList(),
+    val sessions: List<SafeSessionInfo> = emptyList(),
     val activeSessions: Int = sessions.size
 )
 
@@ -31,45 +37,38 @@ data class SafeButNotScalableStats(
  * Represents the server information. This implementation is safe but not scalable because
  * it uses a single lock to protect all shared state.
  */
-class SafeButNonScalableServerInfo {
+class SafeServerInfo {
 
-    private val sessions = mutableMapOf<SocketAddress, SafeButNotScalableSessionInfo>()
-    private var totalClients = 0
-    private val theLock = ReentrantLock()
+    private val sessions = ConcurrentHashMap<SocketAddress, SafeSessionInfo>()
+    private val totalClients = AtomicInteger(0)
 
     /**
      * Creates a new session for the client with [remoteSocketAddress]
      * @param [remoteSocketAddress] the clients' remote address information
      * @return the newly created [SessionInfo] instance
      */
-    private fun createSession(remoteSocketAddress: SocketAddress): SafeButNotScalableSessionInfo {
-        theLock.withLock {
-            val session = SafeButNotScalableSessionInfo(remoteSocketAddress)
-            sessions[remoteSocketAddress] = session
-            totalClients += 1
-            return session
-        }
+    private fun createSession(remoteSocketAddress: SocketAddress): SafeSessionInfo {
+        val session = SafeSessionInfo(remoteSocketAddress)
+        sessions[remoteSocketAddress] = session
+        totalClients.incrementAndGet()
+        return session
     }
 
     /**
      * Ends the given session.
      * @param [sessionInfo] the session to be terminated
      */
-    fun endSession(sessionInfo: SafeButNotScalableSessionInfo) {
-        theLock.withLock {
-            sessions.remove(sessionInfo.remoteSocketAddress)
-        }
+    fun endSession(sessionInfo: SafeSessionInfo) {
+        sessions.remove(sessionInfo.remoteSocketAddress)
     }
 
     /**
      * Increments the number of received messages for the given session.
      * @param [sessionInfo] the session to increment the message count for
      */
-    fun incrementMessageCount(sessionInfo: SafeButNotScalableSessionInfo) {
-        theLock.withLock {
-            val session = checkNotNull(sessions[sessionInfo.remoteSocketAddress])
-            sessions[sessionInfo.remoteSocketAddress] = session.copy(messageCount = sessionInfo.messageCount + 1)
-        }
+    fun incrementMessageCount(sessionInfo: SafeSessionInfo) {
+        val session = checkNotNull(sessions[sessionInfo.remoteSocketAddress])
+        session.incrementMessageCount()
     }
 
     /**
@@ -77,18 +76,19 @@ class SafeButNonScalableServerInfo {
      * @return the server statistics
      */
     fun getStats() =
-        theLock.withLock {
-            SafeButNotScalableStats(totalClients = totalClients, sessions = sessions.values.toList()).toString()
-        }
+        SafeStats(
+            totalClients = totalClients.get(),
+            sessions = sessions.values.toList()
+        ).toString()
 
     /**
      * Executes the given [block] within the context of a session.
      * @param [clientSocket] the client socket
      * @param [block] the block of code to execute
      */
-    fun withSession(clientSocket: Socket, block: (SafeButNotScalableSessionInfo) -> Unit) {
+    fun withSession(clientSocket: Socket, block: (SafeSessionInfo) -> Unit) {
         clientSocket.use { socket ->
-            lateinit var session: SafeButNotScalableSessionInfo
+            lateinit var session: SafeSessionInfo
             try {
                 session = createSession(socket.remoteSocketAddress)
                 block(session)
