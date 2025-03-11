@@ -28,7 +28,8 @@ data class Stats(
 )
 
 /**
- * Represents the server information.
+ * Represents the server information. This implementation is safe but not scalable because
+ * it uses a single lock to protect all shared state.
  */
 class SafeButNonScalableServerInfo {
 
