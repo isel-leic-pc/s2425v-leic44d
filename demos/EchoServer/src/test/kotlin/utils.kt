@@ -1,3 +1,5 @@
+package isel.leic.pc.demos
+
 import java.util.concurrent.CountDownLatch
 
 /**

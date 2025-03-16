@@ -1,3 +1,5 @@
+package isel.leic.pc.demos
+
 import java.time.Duration
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.locks.ReentrantLock

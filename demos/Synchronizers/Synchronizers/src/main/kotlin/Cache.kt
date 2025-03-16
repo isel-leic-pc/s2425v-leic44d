@@ -1,4 +1,4 @@
-package org.example
+package isel.leic.pc.demos
 
 class Cache<K, V>(private val transform: (K) -> V) {
     // Make it thread-safe without using ConcurrentHashMap

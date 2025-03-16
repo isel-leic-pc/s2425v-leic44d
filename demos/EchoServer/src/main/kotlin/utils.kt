@@ -1,4 +1,4 @@
-package org.example
+package isel.leic.pc.demos
 
 import java.io.BufferedWriter
 
