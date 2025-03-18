@@ -2,6 +2,8 @@ package isel.leic.pc.demos
 
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
+import kotlin.Throws
+import kotlin.time.Duration
 
 /**
  * A latch is a synchronization primitive used to make sure that multiple threads do not proceed until a certain
@@ -16,17 +18,27 @@ class Latch {
 
     /**
      * Blocks the calling thread until the latch is opened.
-     * TODO: Change the method's signature so cancellation and timeouts are supported.
+     * @param timeout the maximum time to wait for the latch to open.
+     * @return true if the latch was opened, false if timeout occurred.
      */
-    fun await() {
+    @Throws(InterruptedException::class)
+    fun await(timeout: Duration): Boolean {
+
+        var timeLeft = timeout.inWholeNanoseconds
         guard.withLock {
-            if (isOpen)
-                return
+            while (true) {
 
-            // Wait for it
-            condition.await()
+                // Check condition
+                if (isOpen)
+                    return true
 
-            TODO()
+                // Check timeout
+                if (timeLeft <= 0)
+                    return false
+
+                // Wait for it
+                timeLeft = condition.awaitNanos(timeLeft)
+            }
         }
     }
 
@@ -35,9 +47,11 @@ class Latch {
      */
     fun open() {
         guard.withLock {
-            isOpen = true
-            // Notify all waiting threads
-            condition.signalAll()
+            if (!isOpen) {
+                isOpen = true
+                // Notify all waiting threads
+                condition.signalAll()
+            }
         }
     }
 }
