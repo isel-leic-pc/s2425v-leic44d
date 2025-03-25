@@ -12,8 +12,6 @@
  - [Geral](https://2425moodle.isel.pt/course/view.php?id=9166)
  - [LEIC44D](https://2425moodle.isel.pt/course/view.php?id=9362)
 
-**Slack**
- - [#2025-leic-44d](https://isel-leic-pc.slack.com/messages/C08CT8B7HS7)
 
 
 
