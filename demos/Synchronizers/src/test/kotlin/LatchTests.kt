@@ -1,4 +1,4 @@
-import isel.leic.pc.demos.Latch
+import isel.leic.pc.demos.synch.Latch
 import kotlin.test.Test
 
 class LatchTests {

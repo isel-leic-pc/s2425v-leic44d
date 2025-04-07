@@ -1,4 +1,4 @@
-package isel.leic.pc.demos
+package isel.leic.pc.demos.synch
 
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock

@@ -1,7 +1,8 @@
-package isel.leic.pc.demos
+package isel.leic.pc.demos.synch
 
 import java.util.*
 import java.util.concurrent.locks.ReentrantLock
+import java.util.concurrent.locks.Condition
 import kotlin.concurrent.withLock
 import kotlin.time.Duration
 
@@ -18,16 +19,14 @@ import kotlin.time.Duration
  *
  * Notice that this implementation has a FIFO policy for servicing contending threads.
  *
- * Implementation note: the implementation does not optimize the number of context switches.
+ * Implementation note: the implementation optimizes the number of context switches.
  */
-class UnboundedQueue<T> {
+class UnboundedQueueSN<T> {
 
     private val queue = LinkedList<T>()
 
     private val guard = ReentrantLock()
-    private val condition = guard.newCondition()
-
-    private data class Request<T>(var item: T? = null)
+    private data class Request<T>(var item: T? = null, val condition: Condition)
     private val requests = LinkedList<Request<T>>()
 
     /**
@@ -39,7 +38,7 @@ class UnboundedQueue<T> {
             if (requests.isNotEmpty()) {
                 val request = requests.removeFirst()
                 request.item = item
-                condition.signalAll()
+                request.condition.signal()
             }
             else {
                 queue.addLast(item)
@@ -63,12 +62,12 @@ class UnboundedQueue<T> {
             }
 
             var remainingTime = timeout.inWholeNanoseconds
-            val myRequest = Request<T>()
+            val myRequest = Request<T>(condition = guard.newCondition())
             requests.addLast(myRequest)
 
             try {
                 while (true) {
-                    remainingTime = condition.awaitNanos(remainingTime)
+                    remainingTime = myRequest.condition.awaitNanos(remainingTime)
 
                     if (myRequest.item != null) {
                         return myRequest.item
