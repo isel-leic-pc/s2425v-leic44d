@@ -9,7 +9,10 @@ if (args.length !== 3) {
 
 const [inputFile1, inputFile2, outputFile] = args;
 
+console.log(`Before first read`);
 fs.readFile(inputFile1, 'utf8', function (err, data1) {
+
+  console.log(`Inside first read callback`);
   if (err) {
     console.error(`Error reading ${inputFile1}:`, err.message);
     return;
@@ -32,4 +35,8 @@ fs.readFile(inputFile1, 'utf8', function (err, data1) {
       console.log(`File ${outputFile} written successfully.`);
     });
   });
+
+  console.log(`First read callback finished`);
 });
+
+console.log(`After first read`);
