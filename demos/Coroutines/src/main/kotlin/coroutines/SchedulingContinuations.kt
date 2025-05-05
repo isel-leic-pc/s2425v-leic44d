@@ -23,8 +23,8 @@ private val scheduleExecutor = Executors.newSingleThreadScheduledExecutor()
 private suspend fun sleep(durationInMs: Long) {
     suspendCoroutine { continuation ->
         scheduleExecutor.schedule({
-            //continuations.put(continuation)
-            continuation.resume(Unit)
+            logger.info("Inside scheduleExecutor.schedule")
+            continuations.put(continuation)
         }, durationInMs, TimeUnit.MILLISECONDS)
     }
 }
@@ -57,6 +57,7 @@ fun main() {
     ::f1.startCoroutine(noOpCompletion)
     ::f2.startCoroutine(noOpCompletion)
     ::f3.startCoroutine(noOpCompletion)
+
     while (true) {
         val nextContinuation = continuations.take()
         nextContinuation.resume(Unit)
