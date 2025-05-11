@@ -1,23 +1,24 @@
-package isel.leic.pc.demos
+package isel.leic.pc.demos.blocking
 
 import java.net.Socket
 import java.net.SocketAddress
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
 
 /**
  * Represents the session information.
  * @property [remoteSocketAddress] the remote socket address
  * @property [messageCount] the number of messages received
  */
-class SafeSessionInfo(val remoteSocketAddress: SocketAddress) {
-    private val _messageCount = AtomicInteger(0)
+class SafeWithLockSplittingSessionInfo(val remoteSocketAddress: SocketAddress) {
+    private var _messageCount = 0
+    private val sessionLock = ReentrantLock()
 
     val messageCount: Int
-        get() = _messageCount.get()
+        get() = sessionLock.withLock { _messageCount }
 
     fun incrementMessageCount() {
-        _messageCount.incrementAndGet()
+        sessionLock.withLock { _messageCount += 1 }
     }
 }
 
@@ -27,9 +28,9 @@ class SafeSessionInfo(val remoteSocketAddress: SocketAddress) {
  * @property [sessions] the list of sessions
  * @property [activeSessions] the number of active sessions
  */
-data class SafeStats(
+data class SafeWithLockSplittingStats(
     val totalClients: Int = 0,
-    val sessions: List<SafeSessionInfo> = emptyList(),
+    val sessions: List<SafeWithLockSplittingSessionInfo> = emptyList(),
     val activeSessions: Int = sessions.size
 )
 
@@ -37,37 +38,44 @@ data class SafeStats(
  * Represents the server information. This implementation is safe but not scalable because
  * it uses a single lock to protect all shared state.
  */
-class SafeServerInfo {
+class SafeWithLockSplittingServerInfo {
 
-    private val sessions = ConcurrentHashMap<SocketAddress, SafeSessionInfo>()
-    private val totalClients = AtomicInteger(0)
+    private val sessions = mutableMapOf<SocketAddress, SafeWithLockSplittingSessionInfo>()
+    private var totalClients = 0
+    private val theLock = ReentrantLock()
 
     /**
      * Creates a new session for the client with [remoteSocketAddress]
      * @param [remoteSocketAddress] the clients' remote address information
      * @return the newly created [SessionInfo] instance
      */
-    private fun createSession(remoteSocketAddress: SocketAddress): SafeSessionInfo {
-        val session = SafeSessionInfo(remoteSocketAddress)
-        sessions[remoteSocketAddress] = session
-        totalClients.incrementAndGet()
-        return session
+    private fun createSession(remoteSocketAddress: SocketAddress): SafeWithLockSplittingSessionInfo {
+        theLock.withLock {
+            val session = SafeWithLockSplittingSessionInfo(remoteSocketAddress)
+            sessions[remoteSocketAddress] = session
+            totalClients += 1
+            return session
+        }
     }
 
     /**
      * Ends the given session.
      * @param [sessionInfo] the session to be terminated
      */
-    fun endSession(sessionInfo: SafeSessionInfo) {
-        sessions.remove(sessionInfo.remoteSocketAddress)
+    fun endSession(sessionInfo: SafeWithLockSplittingSessionInfo) {
+        theLock.withLock {
+            sessions.remove(sessionInfo.remoteSocketAddress)
+        }
     }
 
     /**
      * Increments the number of received messages for the given session.
      * @param [sessionInfo] the session to increment the message count for
      */
-    fun incrementMessageCount(sessionInfo: SafeSessionInfo) {
-        val session = checkNotNull(sessions[sessionInfo.remoteSocketAddress])
+    fun incrementMessageCount(sessionInfo: SafeWithLockSplittingSessionInfo) {
+        val session = theLock.withLock {
+            checkNotNull(sessions[sessionInfo.remoteSocketAddress])
+        }
         session.incrementMessageCount()
     }
 
@@ -76,19 +84,18 @@ class SafeServerInfo {
      * @return the server statistics
      */
     fun getStats() =
-        SafeStats(
-            totalClients = totalClients.get(),
-            sessions = sessions.values.toList()
-        ).toString()
+        theLock.withLock {
+            SafeWithLockSplittingStats(totalClients = totalClients, sessions = sessions.values.toList()).toString()
+        }
 
     /**
      * Executes the given [block] within the context of a session.
      * @param [clientSocket] the client socket
      * @param [block] the block of code to execute
      */
-    fun withSession(clientSocket: Socket, block: (SafeSessionInfo) -> Unit) {
+    fun withSession(clientSocket: Socket, block: (SafeWithLockSplittingSessionInfo) -> Unit) {
         clientSocket.use { socket ->
-            lateinit var session: SafeSessionInfo
+            lateinit var session: SafeWithLockSplittingSessionInfo
             try {
                 session = createSession(socket.remoteSocketAddress)
                 block(session)

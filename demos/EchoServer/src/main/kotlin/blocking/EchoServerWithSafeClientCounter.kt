@@ -1,5 +1,6 @@
-package isel.leic.pc.demos
+package isel.leic.pc.demos.blocking
 
+import isel.leic.pc.demos.writeLine
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.net.InetSocketAddress

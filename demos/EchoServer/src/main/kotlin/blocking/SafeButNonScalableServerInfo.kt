@@ -1,4 +1,4 @@
-package isel.leic.pc.demos
+package isel.leic.pc.demos.blocking
 
 import java.net.Socket
 import java.net.SocketAddress
