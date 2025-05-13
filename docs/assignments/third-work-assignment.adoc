@@ -1,0 +1,47 @@
+= Concurrent Programming - Third Work Assignment
+
+== Introduction
+
+This document contains the requirements for the third and last work assignment of the Concurrent Programming (_Programação Concorrente_) course.
+The solution to this work assignment must be delivered until the end of 2025-06-01, via the creation (and push) of the `1.0.0` Git tag.
+For each requirement:
+
+* Include technical documentation with the solution design, e.g. as a KDoc to the complete class (e.g. link:https://github.com/Kotlin/kotlinx.coroutines/blob/master/kotlinx-coroutines-core/common/src/CoroutineScope.kt#L11-L74[example]).
+* Include automated tests, including both basic functional tests and _stress tests_ (when applicable).
+
+This work assignment should be done in groups of 3 students.
+
+== Requirement 1 - `BoundedStream<T>` class with suspend interface.
+
+Implement a version of the `BoundedStream<T>`` class, as introduced in the first assignment, in which both `write` and `read` functions are `suspend`. 
+These functions must not block the calling thread while waiting for their respective operations to complete.
+
+== Requirement 2 (optional) - `BoundedStream<T>` with a flow interface.
+
+Create the following extension function, to access the items of a `BoundedStream` as a Kotlin flow.
+
+.The `asFlow` function
+[#asFlow,kotlin]
+----
+fun <T> BoundedStream<T>.asFlow(): Flow<Pair<Long, T>>
+----
+
+Each item in the flow is a pair containing an item in the bounded stream and its index.
+Each collect of a flow returned by this function should start with the oldest element present in the bounded stream when the collect was initiated.
+
+== Requirement 3 - Broadcast TCP server
+
+Implement a version of the broadcast TCP server, presented in the first work assignment, using coroutines instead of threads whenever possible.
+Namely, the implementation should use a constant number of threads, independent of the number of listening ports or established connections.
+The socket operations should use _asynchronous socket channels_, available in the Java Standard library (`java.nio.channels` package).
+
+== Requirement 4 (optional) - Broadcast TCP server with Server-Sent Events.
+
+Add to the Broadcast TCP server, developed in requirement 3, the ability for clients to receive messages via Server-Sent Events (SSE).
+For that purpose, the developed server application should expose one or more link:https://www.http4k.org[HTTP4K] servers, each containing a `SseHandler` mapped to the path `/messages`.
+See link:https://www.http4k.org/howto/serve_sse/[https://www.http4k.org/howto/serve_sse/] on how to use link:https://www.http4k.org[HTTP4K] with SSE.
+As in the previous requirements, this implementation should use coroutines instead of threads whenever possible.
+
+See also link:https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events[Using server-sent events] for more information about SSE, including:
+* How to use SSE in browsers.
+* The relation between SSE and HTTP, namely the response payload format.
