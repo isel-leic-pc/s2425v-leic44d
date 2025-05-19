@@ -1,8 +1,5 @@
 package coroutines
 
-import coroutines.sync.SimpleMutex
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking

@@ -12,19 +12,28 @@ class SuspendLatch {
     private val continuations = mutableListOf<Continuation<Unit>>()
     private var isOpen = false
 
-    suspend fun await() =
-        guard.withLock {
-            if (!isOpen) {
-                suspendCoroutine { continuation ->
-                    continuations.add(continuation)
-                }
+    suspend fun await() {
+        guard.lock()
+        if (!isOpen) {
+            suspendCoroutine { continuation ->
+                continuations.add(continuation)
+                guard.unlock()
             }
+            // IMPORTANT: THE MUTEX IS NOT OWNED HERE
         }
+        else
+            guard.unlock()
+    }
 
     suspend fun open() {
         val toContinue = guard.withLock {
-            isOpen = true
-            continuations.toList()
+            if (!isOpen) {
+                isOpen = true
+                continuations.toList().also {
+                    continuations.clear()
+                }
+            }
+            else continuations
         }
 
         toContinue.forEach { it.resume(Unit) }
