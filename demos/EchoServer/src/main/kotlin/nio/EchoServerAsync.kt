@@ -95,4 +95,12 @@ private suspend fun AsynchronousServerSocketChannel.suspendAccept(): Asynchronou
                 cont.resumeWithException(exc ?: Exception("Accept failed"))
             }
         })
+
+        cont.invokeOnCancellation {
+            try {
+                close()
+            } catch (e: Exception) {
+                logger.error("Failed to close server socket channel", e)
+            }
+        }
     }
