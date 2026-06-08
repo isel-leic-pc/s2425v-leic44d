@@ -48,7 +48,7 @@ class UnboundedQueueSN<T> {
 
     /**
      * Removes an element from the queue. The calling thread is blocked until an element becomes available,
-     * the specified time as elapsed, or the thread is cancelled.
+     * the specified time as elapsed, or the thread is canceled.
      * @return The element removed from the queue or <code>null</code> if the specified time elapses
      * before an element becomes available.
      * @throws InterruptedException If the blocked thread has been signaled for cancellation.

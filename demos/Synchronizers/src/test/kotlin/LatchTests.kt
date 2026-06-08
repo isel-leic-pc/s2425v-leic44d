@@ -1,5 +1,6 @@
 import isel.leic.pc.demos.synch.Latch
 import kotlin.test.Test
+import kotlin.time.Duration
 
 class LatchTests {
 
@@ -11,7 +12,7 @@ class LatchTests {
             gate.open()
         }
 
-        gate.await()
+        gate.await(timeout = Duration.INFINITE)
 
     }
 }
